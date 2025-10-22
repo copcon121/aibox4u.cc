@@ -115,13 +115,9 @@ class PlaywrightScraper:
                 
                 // Strategy 1: Find cards/items with links
                 const selectors = [
-                    'article a[href]',
-                    '.card a[href]', 
-                    '.tool a[href]',
-                    '.item a[href]',
-                    '[class*="tool"] a[href]',
-                    '[class*="card"] a[href]',
-                    'a[href*="tool"]'
+                    '.sv-tiles-list a[href*="/tool/"]',
+                    'div[class*="sv-tiles"] a[href*="/tool/"]',
+                    'a[href^="/tool/"]'
                 ];
                 
                 const foundLinks = new Set();
@@ -131,9 +127,11 @@ class PlaywrightScraper:
                         const href = link.href;
                         
                         // Skip internal links and duplicates
+                        // Only accept tool links with /tool/ pattern
                         if (!href || foundLinks.has(href) || 
                             href.includes('#') || 
-                            href === window.location.href) {
+                            href === window.location.href ||
+                            !href.includes('/tool/')) {
                             return;
                         }
                         
@@ -144,8 +142,11 @@ class PlaywrightScraper:
                         if (!container) container = link.parentElement;
                         
                         // Extract data
-                        const name = link.textContent?.trim() || 
-                                   link.querySelector('h1, h2, h3, h4, .title, [class*="title"]')?.textContent?.trim() ||
+                        // Try to get name from heading first, then link text
+                        const heading = container?.querySelector('h1, h2, h3, h4, h5, [class*="title"], [class*="name"]');
+                        const name = heading?.textContent?.trim() || 
+                                   link.textContent?.trim() ||
+                                   link.getAttribute('title') ||
                                    'Unknown Tool';
                         
                         const description = container?.querySelector('p, .description, [class*="desc"]')?.textContent?.trim() || '';
@@ -171,6 +172,12 @@ class PlaywrightScraper:
             }''')
             
             print(f"📦 Extracted {len(tools_data)} potential tools")
+            
+            # Debug: Show first 3 tool names
+            if tools_data:
+                print("🔍 Sample tools found:")
+                for tool in tools_data[:3]:
+                    print(f"   - {tool['name']} → {tool['website_url']}")
             
             # Filter and process
             processed_tools = []
@@ -248,10 +255,10 @@ class PlaywrightScraper:
                 'is_featured': False,
                 'featured_order': None,
                 'is_active': True,
-                'created_at': datetime.utcnow(),
-                'updated_at': datetime.utcnow(),
+                'created_at': datetime.now(datetime.UTC),
+                'updated_at': datetime.now(datetime.UTC),
                 'synced_from': SOURCE_URL,
-                'synced_at': datetime.utcnow(),
+                'synced_at': datetime.now(datetime.UTC),
             }
             
             await db.tools.insert_one(tool)
