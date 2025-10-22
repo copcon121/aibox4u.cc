@@ -5,7 +5,7 @@ Works with SPA sites like aitoolsdirectory.com
 import asyncio
 from playwright.async_api import async_playwright
 from motor.motor_asyncio import AsyncIOMotorClient
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import uuid
 import re
@@ -255,10 +255,10 @@ class PlaywrightScraper:
                 'is_featured': False,
                 'featured_order': None,
                 'is_active': True,
-                'created_at': datetime.now(datetime.UTC),
-                'updated_at': datetime.now(datetime.UTC),
+                'created_at': datetime.now(timezone.utc),
+                'updated_at': datetime.now(timezone.utc),
                 'synced_from': SOURCE_URL,
-                'synced_at': datetime.now(datetime.UTC),
+                'synced_at': datetime.now(timezone.utc),
             }
             
             await db.tools.insert_one(tool)
