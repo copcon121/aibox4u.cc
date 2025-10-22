@@ -16,7 +16,7 @@ TEST_URLS = [
     "https://aitoolsdirectory.com/tools",
 ]
 
-def inspect_website():
+async def inspect_website():
     """Inspect website and detect selectors"""
     print("="*60)
     print("🔍 AUTO-DETECTING SELECTORS")
