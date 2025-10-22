@@ -353,6 +353,56 @@ async def get_public_page(slug: str):
         raise HTTPException(status_code=404, detail="Page not found")
     return Page(**page)
 
+# ============================================
+# SYNC TOOLS ROUTES
+# ============================================
+
+@api_router.post("/admin/sync-tools")
+async def trigger_sync_tools(current_admin: str = Depends(get_current_admin)):
+    """Manually trigger tools sync from external source"""
+    try:
+        from sync_tools import sync_tools
+        import asyncio
+        
+        # Run sync in background
+        saved_count = await sync_tools()
+        
+        return {
+            "success": True,
+            "message": f"Sync completed. Added {saved_count} new tools",
+            "tools_added": saved_count
+        }
+    except Exception as e:
+        logger.error(f"Sync error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Sync failed: {str(e)}"
+        )
+
+@api_router.get("/admin/sync-status")
+async def get_sync_status(current_admin: str = Depends(get_current_admin)):
+    """Get last sync status"""
+    try:
+        # Get latest synced tool
+        latest_synced = await db.tools.find_one(
+            {"synced_from": {"$exists": True}},
+            sort=[("synced_at", -1)]
+        )
+        
+        if latest_synced:
+            return {
+                "last_sync": latest_synced.get("synced_at"),
+                "synced_from": latest_synced.get("synced_from"),
+                "total_synced_tools": await db.tools.count_documents({"synced_from": {"$exists": True}})
+            }
+        else:
+            return {
+                "last_sync": None,
+                "message": "No synced tools found"
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Include the router in the main app
 app.include_router(api_router)
 
