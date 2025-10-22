@@ -152,19 +152,28 @@ class PlaywrightScraper:
                         const description = container?.querySelector('p, .description, [class*="desc"]')?.textContent?.trim() || '';
                         
                         const img = container?.querySelector('img');
-                        const imageUrl = img?.src || img?.getAttribute('data-src') || '';
+                        const imageUrl = img?.src || 
+                                img?.getAttribute('data-src') || 
+                                img?.getAttribute('data-lazy-src') ||
+                                img?.getAttribute('srcset')?.split(' ')[0] ||
+                                '';
+
+                            // Convert relative URLs to absolute
+                        const finalImageUrl = imageUrl && !imageUrl.startsWith('http') 
+                            ? new URL(imageUrl, window.location.origin).href 
+                            : imageUrl;
                         
                         // Get tags from badges/labels
                         const tagElements = container?.querySelectorAll('.tag, .badge, .label, [class*="tag"]') || [];
                         const tags = Array.from(tagElements).map(t => t.textContent?.trim()).filter(Boolean);
                         
                         tools.push({
-                            name: name,
-                            description: description,
-                            website_url: href,
-                            image_url: imageUrl,
-                            tags: tags
-                        });
+                             name: name,
+                             description: description,
+                              website_url: href,
+                             image_url: finalImageUrl,
+                             tags: tags
+                    });
                     });
                 });
                 
