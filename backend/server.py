@@ -361,10 +361,9 @@ async def get_public_page(slug: str):
 async def trigger_sync_tools(current_admin: str = Depends(get_current_admin)):
     """Manually trigger tools sync from external source"""
     try:
-        from sync_tools import sync_tools
-        import asyncio
+        from sync_tools_playwright import sync_tools
         
-        # Run sync in background
+        # Run sync
         saved_count = await sync_tools()
         
         return {
