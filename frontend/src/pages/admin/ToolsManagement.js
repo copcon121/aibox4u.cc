@@ -6,6 +6,19 @@ const ToolsManagement = () => {
   const [tools, setTools] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [editingTool, setEditingTool] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    category: '',
+    tags: [],
+    price_type: 'Free',
+    website_url: '',
+    image_url: '',
+    is_featured: false,
+    is_active: true
+  });
   const { getAuthHeader } = useAuth();
 
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -57,6 +70,56 @@ const ToolsManagement = () => {
     } catch (error) {
       console.error('Error toggling featured status:', error);
       alert('Failed to update featured status');
+    }
+  };
+
+  const handleEdit = (tool) => {
+    setEditingTool(tool);
+    setFormData({
+      name: tool.name,
+      description: tool.description,
+      category: tool.category,
+      tags: tool.tags || [],
+      price_type: tool.price_type,
+      website_url: tool.website_url,
+      image_url: tool.image_url || '',
+      is_featured: tool.is_featured,
+      is_active: tool.is_active
+    });
+    setShowModal(true);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      if (editingTool) {
+        // Update existing tool
+        await axios.put(
+          `${API}/admin/tools/${editingTool.id}`,
+          formData,
+          { headers: getAuthHeader() }
+        );
+        alert('Tool updated successfully');
+      }
+
+      setShowModal(false);
+      setEditingTool(null);
+      setFormData({
+        name: '',
+        description: '',
+        category: '',
+        tags: [],
+        price_type: 'Free',
+        website_url: '',
+        image_url: '',
+        is_featured: false,
+        is_active: true
+      });
+      fetchTools();
+    } catch (error) {
+      console.error('Error saving tool:', error);
+      alert(error.response?.data?.detail || 'Failed to save tool');
     }
   };
 
@@ -178,12 +241,20 @@ const ToolsManagement = () => {
                     </button>
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <button
-                      onClick={() => deleteTool(tool.id)}
-                      className="text-red-600 hover:text-red-800 font-medium transition-colors"
-                    >
-                      Delete
-                    </button>
+                    <div className="flex items-center justify-center space-x-2">
+                      <button
+                        onClick={() => handleEdit(tool)}
+                        className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition font-medium"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => deleteTool(tool.id)}
+                        className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition font-medium"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -197,6 +268,137 @@ const ToolsManagement = () => {
           </div>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-2xl font-bold text-gray-800">
+                Edit Tool
+              </h3>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Name *
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description *
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                  rows="4"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Category *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Price Type *
+                  </label>
+                  <select
+                    value={formData.price_type}
+                    onChange={(e) => setFormData({ ...formData, price_type: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                    required
+                  >
+                    <option value="Free">Free</option>
+                    <option value="Paid">Paid</option>
+                    <option value="Freemium">Freemium</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Website URL *
+                </label>
+                <input
+                  type="url"
+                  value={formData.website_url}
+                  onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                  placeholder="https://example.com"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Image URL
+                </label>
+                <input
+                  type="url"
+                  value={formData.image_url}
+                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                  placeholder="https://example.com/image.jpg"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tags (comma-separated)
+                </label>
+                <input
+                  type="text"
+                  value={formData.tags.join(', ')}
+                  onChange={(e) => setFormData({ 
+                    ...formData, 
+                    tags: e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag)
+                  })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                  placeholder="AI, Machine Learning, Productivity"
+                />
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="submit"
+                  className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-pink-700 transition"
+                >
+                  Update Tool
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

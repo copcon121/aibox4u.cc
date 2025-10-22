@@ -209,6 +209,40 @@ async def toggle_tool_featured(tool_id: str, current_admin: str = Depends(get_cu
     
     return {"message": "Tool featured status updated", "is_featured": new_status}
 
+# Delete tool (admin only)
+@api_router.delete("/admin/tools/{tool_id}")
+async def delete_tool_admin(tool_id: str, current_admin: str = Depends(get_current_admin)):
+    result = await db.tools.delete_one({"id": tool_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Tool not found")
+    return {"message": "Tool deleted successfully"}
+
+# Get single tool by ID (admin)
+@api_router.get("/admin/tools/{tool_id}", response_model=Tool)
+async def get_tool_admin(tool_id: str, current_admin: str = Depends(get_current_admin)):
+    tool = await db.tools.find_one({"id": tool_id})
+    if not tool:
+        raise HTTPException(status_code=404, detail="Tool not found")
+    return Tool(**tool)
+
+# Update tool (admin only)
+@api_router.put("/admin/tools/{tool_id}", response_model=Tool)
+async def update_tool_admin(tool_id: str, tool_input: ToolCreate, current_admin: str = Depends(get_current_admin)):
+    existing_tool = await db.tools.find_one({"id": tool_id})
+    if not existing_tool:
+        raise HTTPException(status_code=404, detail="Tool not found")
+    
+    update_data = tool_input.dict()
+    update_data["updated_at"] = datetime.utcnow()
+    
+    await db.tools.update_one(
+        {"id": tool_id},
+        {"$set": update_data}
+    )
+    
+    updated_tool = await db.tools.find_one({"id": tool_id})
+    return Tool(**updated_tool)
+
 # Get admin statistics
 @api_router.get("/admin/stats", response_model=Statistics)
 async def get_admin_statistics(current_admin: str = Depends(get_current_admin)):
