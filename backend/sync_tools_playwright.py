@@ -109,6 +109,18 @@ class PlaywrightScraper:
                 await self.page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
                 await self.page.wait_for_timeout(SCROLL_PAUSE * 1000)
             
+            # Trigger lazy loading for images
+            print("🖼️  Triggering lazy image loading...")
+            await self.page.evaluate('''() => {
+                const elements = document.querySelectorAll('div[role="img"], .sv-tile__image');
+                elements.forEach(el => {
+                    el.scrollIntoView({behavior: 'instant', block: 'center'});
+                    // Force a reflow to trigger image loading
+                    void el.offsetHeight;
+                });
+            }''')
+            await self.page.wait_for_timeout(5000)  # Chờ lâu hơn: 5 giây
+            
             # Get all links that might be tool links
             tools_data = await self.page.evaluate('''() => {
                 const tools = [];
@@ -138,7 +150,7 @@ class PlaywrightScraper:
                         foundLinks.add(href);
                         
                         // Try to get parent container
-                        let container = link.closest('article, .card, .tool, .item, [class*="card"]');
+                        let container = link.closest('article, .card, .tool, .item, .sv-tile, [class*="card"]');
                         if (!container) container = link.parentElement;
                         
                         // Extract data
@@ -147,18 +159,39 @@ class PlaywrightScraper:
                         const name = heading?.textContent?.trim() || 
                                    link.textContent?.trim() ||
                                    link.getAttribute('title') ||
+                                   link.getAttribute('aria-label') ||
                                    'Unknown Tool';
                         
                         const description = container?.querySelector('p, .description, [class*="desc"]')?.textContent?.trim() || '';
                         
-                        const img = container?.querySelector('img');
-                        const imageUrl = img?.src || 
-                                img?.getAttribute('data-src') || 
-                                img?.getAttribute('data-lazy-src') ||
-                                img?.getAttribute('srcset')?.split(' ')[0] ||
-                                '';
-
-                            // Convert relative URLs to absolute
+                        // NEW: Extract image from div with role="img" and background-image
+                        let imageUrl = '';
+                        
+                        // First try: div with role="img" and background-image
+                        const imgDiv = container?.querySelector('div[role="img"]') || 
+                                       container?.querySelector('.sv-tile__image') ||
+                                       container?.querySelector('div[class*="image"]');
+                        
+                        if (imgDiv) {
+                            const style = window.getComputedStyle(imgDiv);
+                            const bgImage = style.backgroundImage;
+                            
+                            // Extract URL from background-image: url("...")
+                            if (bgImage && bgImage !== 'none') {
+                                const match = bgImage.match(/url\\(["\']?([^"\')]+)["\']?\\)/);
+                                if (match) {
+                                    imageUrl = match[1];
+                                }
+                            }
+                        }
+                        
+                        // Fallback: try regular <img> tag
+                        if (!imageUrl) {
+                            const img = container?.querySelector('img');
+                            imageUrl = img?.src || img?.getAttribute('data-src') || '';
+                        }
+                        
+                        // Convert relative URLs to absolute
                         const finalImageUrl = imageUrl && !imageUrl.startsWith('http') 
                             ? new URL(imageUrl, window.location.origin).href 
                             : imageUrl;
@@ -168,12 +201,12 @@ class PlaywrightScraper:
                         const tags = Array.from(tagElements).map(t => t.textContent?.trim()).filter(Boolean);
                         
                         tools.push({
-                             name: name,
-                             description: description,
-                              website_url: href,
-                             image_url: finalImageUrl,
-                             tags: tags
-                    });
+                            name: name,
+                            description: description,
+                            website_url: href,
+                            image_url: finalImageUrl,
+                            tags: tags
+                        });
                     });
                 });
                 
@@ -182,11 +215,12 @@ class PlaywrightScraper:
             
             print(f"📦 Extracted {len(tools_data)} potential tools")
             
-            # Debug: Show first 3 tool names
+            # Debug: Show first 3 tool names and images
             if tools_data:
                 print("🔍 Sample tools found:")
                 for tool in tools_data[:3]:
-                    print(f"   - {tool['name']} → {tool['website_url']}")
+                    img_status = "✅ Has image" if tool.get('image_url') else "❌ No image"
+                    print(f"   - {tool['name']} → {tool['website_url']} [{img_status}]")
             
             # Filter and process
             processed_tools = []
@@ -217,6 +251,8 @@ class PlaywrightScraper:
             
         except Exception as e:
             print(f"❌ Error extracting tools: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return []
     
     async def scrape_tools(self):
@@ -306,6 +342,7 @@ async def sync_tools():
                 print(f"   Name: {sample['name']}")
                 print(f"   URL: {sample['website_url'][:60]}...")
                 print(f"   Description: {sample['description'][:100]}...")
+                print(f"   Image: {sample.get('image_url', 'N/A')[:60]}...")
                 print()
             
             # Save to database
