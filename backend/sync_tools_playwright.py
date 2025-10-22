@@ -103,26 +103,48 @@ class PlaywrightScraper:
             print("⏳ Waiting for content to load...")
             await self.page.wait_for_timeout(5000)  # Wait 5 seconds for JS to render
             
-            # Try to scroll to load more content
+            # Scroll slowly to load ALL content and trigger lazy loading
             print("📜 Scrolling to load more content...")
-            for i in range(3):  # Scroll 3 times
-                await self.page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
-                await self.page.wait_for_timeout(SCROLL_PAUSE * 1000)
+            total_height = await self.page.evaluate('document.body.scrollHeight')
+            viewport_height = await self.page.evaluate('window.innerHeight')
+            current_position = 0
             
-            # Trigger lazy loading for images
+            while current_position < total_height:
+                current_position += viewport_height
+                await self.page.evaluate(f'window.scrollTo(0, {current_position})')
+                await self.page.wait_for_timeout(1500)  # Wait 1.5s per scroll
+                # Update total height as page may load more content
+                total_height = await self.page.evaluate('document.body.scrollHeight')
+            
+            print(f"   ✅ Scrolled to bottom ({total_height}px)")
+            
+            # Trigger lazy loading for images - scroll to each element individually
             print("🖼️  Triggering lazy image loading...")
-            await self.page.evaluate('''() => {
+            image_count = await self.page.evaluate('''() => {
                 const elements = document.querySelectorAll('div[role="img"], .sv-tile__image');
-                elements.forEach(el => {
-                    el.scrollIntoView({behavior: 'instant', block: 'center'});
-                    // Force a reflow to trigger image loading
-                    void el.offsetHeight;
-                });
+                return elements.length;
             }''')
-            await self.page.wait_for_timeout(5000)  # Chờ lâu hơn: 5 giây
+            print(f"   Found {image_count} images to load...")
+            
+            # Scroll to each image element to trigger lazy loading
+            batch_size = 10
+            for i in range(0, image_count, batch_size):
+                await self.page.evaluate(f'''() => {{
+                    const elements = document.querySelectorAll('div[role="img"], .sv-tile__image');
+                    for (let i = {i}; i < Math.min({i + batch_size}, elements.length); i++) {{
+                        elements[i].scrollIntoView({{behavior: 'instant', block: 'center'}});
+                        // Force reflow
+                        void elements[i].offsetHeight;
+                    }}
+                }}''')
+                await self.page.wait_for_timeout(1000)  # Wait 1 second between batches
+                print(f"   Loading batch {i//batch_size + 1}/{(image_count + batch_size - 1)//batch_size}...")
+            
+            print("   ✅ All images triggered, waiting for load...")
+            await self.page.wait_for_timeout(3000)  # Final wait for images to load
             
             # Get all links that might be tool links
-            tools_data = await self.page.evaluate('''() => {
+            tools_data = await self.page.evaluate(r'''() => {
                 const tools = [];
                 
                 // Strategy 1: Find cards/items with links
@@ -164,7 +186,7 @@ class PlaywrightScraper:
                         
                         const description = container?.querySelector('p, .description, [class*="desc"]')?.textContent?.trim() || '';
                         
-                        // NEW: Extract image from div with role="img" and background-image
+                        // Extract image from div with role="img" and background-image
                         let imageUrl = '';
                         
                         // First try: div with role="img" and background-image
@@ -178,7 +200,7 @@ class PlaywrightScraper:
                             
                             // Extract URL from background-image: url("...")
                             if (bgImage && bgImage !== 'none') {
-                                const match = bgImage.match(/url\\(["\']?([^"\')]+)["\']?\\)/);
+                                const match = bgImage.match(/url\(["']?([^"')]+)["']?\)/);
                                 if (match) {
                                     imageUrl = match[1];
                                 }
@@ -221,6 +243,10 @@ class PlaywrightScraper:
                 for tool in tools_data[:3]:
                     img_status = "✅ Has image" if tool.get('image_url') else "❌ No image"
                     print(f"   - {tool['name']} → {tool['website_url']} [{img_status}]")
+                
+                # Count tools with images
+                tools_with_images = sum(1 for t in tools_data if t.get('image_url'))
+                print(f"   📊 {tools_with_images}/{len(tools_data)} tools have images")
             
             # Filter and process
             processed_tools = []
