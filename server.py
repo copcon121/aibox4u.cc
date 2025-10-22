@@ -45,7 +45,7 @@ async def get_tools(
     sort_by: str = "created_at",
     sort_order: str = "desc"
 ):
-    query = {}
+    query = {"is_active": True}  # Only return active tools to public
     
     if search:
         query["$or"] = [
@@ -68,7 +68,7 @@ async def get_tools(
 # Get featured tools
 @api_router.get("/tools/featured", response_model=List[Tool])
 async def get_featured_tools():
-    tools = await db.tools.find({"is_featured": True}).sort("featured_order", 1).to_list(10)
+    tools = await db.tools.find({"is_featured": True, "is_active": True}).sort("featured_order", 1).to_list(10)
     return [Tool(**tool) for tool in tools]
 
 # Get single tool by ID
@@ -168,6 +168,50 @@ async def create_initial_admin(username: str = "admin", password: str = "admin12
     
     await db.admins.insert_one(admin.dict())
     return {"message": "Initial admin created successfully", "username": username}
+
+# Get all tools for admin (including inactive ones)
+@api_router.get("/admin/tools", response_model=List[Tool])
+async def get_all_tools_admin(current_admin: str = Depends(get_current_admin)):
+    tools = await db.tools.find({}).sort("created_at", -1).to_list(1000)
+    return [Tool(**tool) for tool in tools]
+
+# Create new tool (admin only)
+@api_router.post("/admin/tools", response_model=Tool)
+async def create_tool_admin(tool_input: ToolCreate, current_admin: str = Depends(get_current_admin)):
+    # Create tool with default values
+    tool_dict = tool_input.dict()
+    tool_dict["is_active"] = True  # New tools are active by default
+    tool_dict["is_featured"] = False  # New tools are not featured by default
+    
+    tool = Tool(**tool_dict)
+    await db.tools.insert_one(tool.dict())
+    return tool
+
+# Update tool (admin only)
+@api_router.put("/admin/tools/{tool_id}", response_model=Tool)
+async def update_tool_admin(tool_id: str, tool_input: ToolCreate, current_admin: str = Depends(get_current_admin)):
+    existing_tool = await db.tools.find_one({"id": tool_id})
+    if not existing_tool:
+        raise HTTPException(status_code=404, detail="Tool not found")
+    
+    update_data = tool_input.dict()
+    update_data["updated_at"] = datetime.utcnow()
+    
+    await db.tools.update_one(
+        {"id": tool_id},
+        {"$set": update_data}
+    )
+    
+    updated_tool = await db.tools.find_one({"id": tool_id})
+    return Tool(**updated_tool)
+
+# Delete tool (admin only)
+@api_router.delete("/admin/tools/{tool_id}")
+async def delete_tool_admin(tool_id: str, current_admin: str = Depends(get_current_admin)):
+    result = await db.tools.delete_one({"id": tool_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Tool not found")
+    return {"message": "Tool deleted successfully"}
 
 # Toggle tool active status
 @api_router.patch("/admin/tools/{tool_id}/toggle-active")
