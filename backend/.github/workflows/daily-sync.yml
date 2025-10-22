@@ -1,0 +1,45 @@
+name: Daily AI Tools Sync
+
+on:
+  schedule:
+    # Chạy mỗi ngày lúc 2:00 AM UTC (9:00 AM Việt Nam)
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Cho phép chạy thủ công
+
+jobs:
+  sync-tools:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install playwright motor python-dotenv beautifulsoup4
+          playwright install chromium
+      
+      - name: Create .env file
+        run: |
+          cd backend
+          echo "MONGO_URL=${{ secrets.MONGO_URL }}" > .env
+          echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
+      
+      - name: Run sync
+        run: |
+          cd backend
+          python sync_tools_playwright.py
+      
+      - name: Notify on success
+        if: success()
+        run: echo "✅ Sync completed successfully!"
+      
+      - name: Notify on failure
+        if: failure()
+        run: echo "❌ Sync failed!"
