@@ -12,9 +12,9 @@ const HomePage = () => {
   
   // Site settings state - THÊM MỚI
   const [siteSettings, setSiteSettings] = useState({
-    site_name: 'AI Tools Directory',
+    site_name: 'AI BOX FOR YOU',
     site_logo_url: '',
-    site_description: "The world's best curated list of AI Tools"
+    site_description: "Explore the ultimate AI toolbox — trusted, verified, and beautifully organized"
   });
   
   // Filter states
