@@ -25,7 +25,7 @@ db = client[os.environ['DB_NAME']]
 # Configuration
 SOURCE_URL = "https://aitoolsdirectory.com"
 RATE_LIMIT_DELAY = 3  # seconds between requests
-MAX_TOOLS_PER_RUN = 50  # Reduced because we visit detail pages
+MAX_TOOLS_PER_RUN = 2  # Get up to 50 tools per run
 SCROLL_PAUSE = 2  # seconds to wait after scrolling
 DETAIL_PAGE_DELAY = 3  # seconds between detail page visits
 
@@ -98,13 +98,6 @@ class PlaywrightScraper:
         if self.playwright:
             await self.playwright.stop()
     
-    async def extract_tool_details(self, tool_url):
-        """Visit tool detail page and extract full information"""
-        try:
-            print(f"   🔍 Visiting detail page...")
-            await self.page.goto(tool_url, wait_until='networkidle', timeout=30000)
-            await self.page.wait_for_timeout(2000)
-            
     async def extract_tool_details(self, tool_url):
         """Visit tool detail page and extract full information"""
         try:
