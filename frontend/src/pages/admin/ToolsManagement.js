@@ -6,6 +6,7 @@ const ToolsManagement = () => {
   const [tools, setTools] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [togglingTools, setTogglingTools] = useState(new Set());
   const { getAuthHeader } = useAuth();
 
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -27,36 +28,64 @@ const ToolsManagement = () => {
   };
 
   const toggleActive = async (toolId) => {
+    // Prevent multiple simultaneous toggles for the same tool
+    if (togglingTools.has(toolId)) {
+      return;
+    }
+
     try {
-      await axios.patch(
+      setTogglingTools(prev => new Set(prev).add(toolId));
+      
+      const response = await axios.patch(
         `${API}/admin/tools/${toolId}/toggle-active`,
         {},
         { headers: getAuthHeader() }
       );
-      // Update local state
+      
+      // Update local state with the actual backend response
       setTools(tools.map(tool =>
-        tool.id === toolId ? { ...tool, is_active: !tool.is_active } : tool
+        tool.id === toolId ? { ...tool, is_active: response.data.is_active } : tool
       ));
     } catch (error) {
       console.error('Error toggling active status:', error);
       alert('Failed to update tool status');
+    } finally {
+      setTogglingTools(prev => {
+        const next = new Set(prev);
+        next.delete(toolId);
+        return next;
+      });
     }
   };
 
   const toggleFeatured = async (toolId) => {
+    // Prevent multiple simultaneous toggles for the same tool
+    if (togglingTools.has(toolId)) {
+      return;
+    }
+
     try {
-      await axios.patch(
+      setTogglingTools(prev => new Set(prev).add(toolId));
+      
+      const response = await axios.patch(
         `${API}/admin/tools/${toolId}/toggle-featured`,
         {},
         { headers: getAuthHeader() }
       );
-      // Update local state
+      
+      // Update local state with the actual backend response
       setTools(tools.map(tool =>
-        tool.id === toolId ? { ...tool, is_featured: !tool.is_featured } : tool
+        tool.id === toolId ? { ...tool, is_featured: response.data.is_featured } : tool
       ));
     } catch (error) {
       console.error('Error toggling featured status:', error);
       alert('Failed to update featured status');
+    } finally {
+      setTogglingTools(prev => {
+        const next = new Set(prev);
+        next.delete(toolId);
+        return next;
+      });
     }
   };
 
@@ -152,9 +181,10 @@ const ToolsManagement = () => {
                   <td className="px-6 py-4 text-center">
                     <button
                       onClick={() => toggleActive(tool.id)}
+                      disabled={togglingTools.has(tool.id)}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                         tool.is_active ? 'bg-green-500' : 'bg-gray-300'
-                      }`}
+                      } ${togglingTools.has(tool.id) ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <span
                         className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -166,9 +196,10 @@ const ToolsManagement = () => {
                   <td className="px-6 py-4 text-center">
                     <button
                       onClick={() => toggleFeatured(tool.id)}
+                      disabled={togglingTools.has(tool.id)}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                         tool.is_featured ? 'bg-yellow-500' : 'bg-gray-300'
-                      }`}
+                      } ${togglingTools.has(tool.id) ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <span
                         className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
