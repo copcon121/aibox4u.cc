@@ -105,82 +105,72 @@ class PlaywrightScraper:
             await self.page.goto(tool_url, wait_until='networkidle', timeout=30000)
             await self.page.wait_for_timeout(2000)
             
+    async def extract_tool_details(self, tool_url):
+        """Visit tool detail page and extract full information"""
+        try:
+            print(f"   🔍 Visiting detail page...")
+            await self.page.goto(tool_url, wait_until='networkidle', timeout=30000)
+            await self.page.wait_for_timeout(2000)
+            
             details = await self.page.evaluate('''() => {
-                // Extract category from breadcrumbs or category badges
-                const categorySelectors = [
-                    '.breadcrumb a[href*="/category/"]',
-                    'a[href*="/category/"]',
-                    '.category-badge',
-                    '.sv-breadcrumb a',
-                    '[class*="category"]',
-                    '[class*="breadcrumb"] a'
-                ];
-                
+                // Extract category from badges - sv-badge__4 class
                 let category = 'AI Tools';
-                for (const selector of categorySelectors) {
-                    const elem = document.querySelector(selector);
-                    if (elem && elem.textContent.trim() && !elem.textContent.toLowerCase().includes('home')) {
-                        category = elem.textContent.trim();
+                const badges = document.querySelectorAll('.sv-badge');
+                
+                for (const badge of badges) {
+                    const className = badge.className;
+                    const text = badge.textContent.trim();
+                    
+                    // Category badge has class "sv-badge__4"
+                    if (className.includes('sv-badge__4') && text.length > 0 && !text.startsWith('#')) {
+                        category = text;
                         break;
                     }
                 }
                 
-                // Extract price type from badges or page content
+                // Extract price type from badges - sv-badge__3 class
                 let priceType = 'Unknown';
                 
-                // Look for pricing badges/labels
-                const pricingElements = document.querySelectorAll('.badge, .tag, .label, [class*="price"], [class*="pricing"]');
-                for (const elem of pricingElements) {
-                    const text = elem.textContent.toLowerCase();
-                    if (text.includes('free') && !text.includes('trial')) {
-                        priceType = 'Free';
-                        break;
-                    } else if (text.includes('freemium') || text.includes('free trial')) {
-                        priceType = 'Freemium';
-                        break;
-                    } else if (text.includes('paid') || text.includes('premium')) {
-                        priceType = 'Paid';
+                for (const badge of badges) {
+                    const className = badge.className;
+                    const text = badge.textContent.trim().toLowerCase();
+                    
+                    // Price badge has class "sv-badge__3"
+                    if (className.includes('sv-badge__3')) {
+                        if (text.includes('free') && !text.includes('trial')) {
+                            priceType = 'Free';
+                        } else if (text.includes('freemium') || text.includes('free trial')) {
+                            priceType = 'Freemium';
+                        } else if (text.includes('paid') || text.includes('premium')) {
+                            priceType = 'Paid';
+                        } else {
+                            // Just take the text as-is if it's a price badge
+                            priceType = text.charAt(0).toUpperCase() + text.slice(1);
+                        }
                         break;
                     }
                 }
                 
-                // Fallback: search in page content
-                if (priceType === 'Unknown') {
-                    const bodyText = document.body.textContent.toLowerCase();
-                    if (bodyText.includes('100% free') || bodyText.includes('completely free') || bodyText.includes('free to use')) {
-                        priceType = 'Free';
-                    } else if (bodyText.includes('freemium') || bodyText.includes('free trial') || bodyText.includes('free plan')) {
-                        priceType = 'Freemium';
-                    } else if (bodyText.includes('paid plan') || bodyText.includes('subscription') || bodyText.includes('premium')) {
-                        priceType = 'Paid';
-                    }
-                }
-                
-                // Extract full description
-                const descSelectors = [
-                    '.tool-description',
-                    '.sv-tool__description',
-                    '[class*="description"]',
-                    'article p',
-                    'main p',
-                    '.content p'
-                ];
-                
+                // Extract full description from product string
                 let description = '';
-                for (const selector of descSelectors) {
-                    const elem = document.querySelector(selector);
-                    if (elem && elem.textContent.trim().length > 50) {
-                        description = elem.textContent.trim();
-                        break;
-                    }
+                const descContainer = document.querySelector('.sv-product-page__string, .sv-product-string');
+                
+                if (descContainer) {
+                    // Get all paragraphs, excluding headings
+                    const paragraphs = Array.from(descContainer.querySelectorAll('p'))
+                        .map(p => p.textContent.trim())
+                        .filter(text => text.length > 30);
+                    
+                    // Join first 2-3 paragraphs for a good description
+                    description = paragraphs.slice(0, 3).join(' ');
                 }
                 
-                // If no description found, collect paragraphs
+                // Fallback: try to get any description
                 if (!description) {
-                    const paragraphs = Array.from(document.querySelectorAll('main p, article p, .content p, [class*="description"] p'))
-                        .map(p => p.textContent.trim())
-                        .filter(text => text.length > 30 && !text.toLowerCase().includes('cookie') && !text.toLowerCase().includes('submit'));
-                    description = paragraphs.slice(0, 2).join(' ');
+                    const altDesc = document.querySelector('.sv-product-page__meta, .sv-product-page__description');
+                    if (altDesc) {
+                        description = altDesc.textContent.trim();
+                    }
                 }
                 
                 return {
