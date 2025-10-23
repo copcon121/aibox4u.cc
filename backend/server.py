@@ -6,6 +6,7 @@ import os
 import logging
 from pathlib import Path
 from typing import List, Optional
+from pydantic import BaseModel
 from models import (
     Tool, ToolCreate, SearchFilter,
     AdminLogin, Admin, Token, SiteSettings, SiteSettingsBase,
@@ -16,6 +17,12 @@ from auth import (
     get_current_admin, ACCESS_TOKEN_EXPIRE_MINUTES
 )
 from datetime import datetime, timedelta
+
+# Add ChangePassword model
+class ChangePassword(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_password: str
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -34,7 +41,7 @@ api_router = APIRouter(prefix="/api")
 # Root endpoint
 @api_router.get("/")
 async def root():
-    return {"message": "AI Tools Directory API", "version": "1.0.0"}
+    return {"message": "AI Tools Directory API", "version": "1.0.1"}
 
 # Get all tools with filters
 @api_router.get("/tools", response_model=List[Tool])
@@ -87,7 +94,7 @@ async def create_tool(tool_input: ToolCreate):
     await db.tools.insert_one(tool.dict())
     return tool
 
-# Update tool (kept for backward compatibility, not recommended for admin use)
+# Update tool
 @api_router.put("/tools/{tool_id}", response_model=Tool)
 async def update_tool(tool_id: str, tool_input: ToolCreate):
     existing_tool = await db.tools.find_one({"id": tool_id})
@@ -105,7 +112,7 @@ async def update_tool(tool_id: str, tool_input: ToolCreate):
     updated_tool = await db.tools.find_one({"id": tool_id})
     return Tool(**updated_tool)
 
-# Delete tool (kept for backward compatibility, not recommended for admin use)
+# Delete tool
 @api_router.delete("/tools/{tool_id}")
 async def delete_tool(tool_id: str):
     result = await db.tools.delete_one({"id": tool_id})
@@ -169,6 +176,38 @@ async def create_initial_admin(username: str = "admin", password: str = "admin12
     await db.admins.insert_one(admin.dict())
     return {"message": "Initial admin created successfully", "username": username}
 
+# Change admin password
+@api_router.post("/admin/change-password")
+async def change_admin_password(
+    password_data: ChangePassword,
+    current_admin: str = Depends(get_current_admin)
+):
+    # Validate new password matches confirmation
+    if password_data.new_password != password_data.confirm_password:
+        raise HTTPException(status_code=400, detail="New passwords do not match")
+    
+    # Validate password length
+    if len(password_data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    
+    # Get admin from database
+    admin = await db.admins.find_one({"username": current_admin})
+    if not admin:
+        raise HTTPException(status_code=404, detail="Admin not found")
+    
+    # Verify current password
+    if not verify_password(password_data.current_password, admin["hashed_password"]):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+    
+    # Hash and update new password
+    new_hashed_password = get_password_hash(password_data.new_password)
+    await db.admins.update_one(
+        {"username": current_admin},
+        {"$set": {"hashed_password": new_hashed_password}}
+    )
+    
+    return {"message": "Password changed successfully"}
+
 # Toggle tool active status
 @api_router.patch("/admin/tools/{tool_id}/toggle-active")
 async def toggle_tool_active(tool_id: str, current_admin: str = Depends(get_current_admin)):
@@ -208,6 +247,7 @@ async def toggle_tool_featured(tool_id: str, current_admin: str = Depends(get_cu
     )
     
     return {"message": "Tool featured status updated", "is_featured": new_status}
+
 # Create new tool (admin endpoint with authentication)
 @api_router.post("/admin/tools", response_model=Tool)
 async def create_tool_admin(tool_input: ToolCreate, current_admin: str = Depends(get_current_admin)):
@@ -221,11 +261,6 @@ async def create_tool_admin(tool_input: ToolCreate, current_admin: str = Depends
     await db.tools.insert_one(tool.dict())
     return tool
 
-# Get all tools for admin (including inactive)
-@api_router.get("/admin/tools", response_model=List[Tool])
-async def get_all_tools_admin(current_admin: str = Depends(get_current_admin)):
-    tools = await db.tools.find({}).sort("created_at", -1).to_list(1000)
-    return [Tool(**tool) for tool in tools]
 # Update tool (admin endpoint with authentication)
 @api_router.put("/admin/tools/{tool_id}", response_model=Tool)
 async def update_tool_admin(tool_id: str, tool_input: ToolCreate, current_admin: str = Depends(get_current_admin)):
@@ -307,18 +342,19 @@ async def update_site_settings(
     settings_input: SiteSettingsBase,
     current_admin: str = Depends(get_current_admin)
 ):
+    # Get existing settings
     settings = await db.site_settings.find_one({})
     
     update_data = settings_input.dict()
     update_data["updated_at"] = datetime.utcnow()
     
     if settings:
-        # Update existing
+        # Update existing - use _id from MongoDB (FIXED!)
         await db.site_settings.update_one(
-            {"id": settings["id"]},
+            {"_id": settings["_id"]},  # Changed from {"id": settings["id"]}
             {"$set": update_data}
         )
-        updated_settings = await db.site_settings.find_one({"id": settings["id"]})
+        updated_settings = await db.site_settings.find_one({"_id": settings["_id"]})
     else:
         # Create new
         new_settings = SiteSettings(**update_data)
