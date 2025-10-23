@@ -1,7 +1,7 @@
 """
 Auto Sync Tools using Playwright (for JavaScript-rendered sites)
 Works with SPA sites like aitoolsdirectory.com
-Enhanced version: Visits detail pages to get accurate category, price, and description
+Enhanced version: Visits detail pages to get accurate category, price, and FULL description
 """
 import asyncio
 from playwright.async_api import async_playwright
@@ -25,7 +25,7 @@ db = client[os.environ['DB_NAME']]
 # Configuration
 SOURCE_URL = "https://aitoolsdirectory.com"
 RATE_LIMIT_DELAY = 3  # seconds between requests
-MAX_TOOLS_PER_RUN = 2  # Get up to 50 tools per run
+MAX_TOOLS_PER_RUN = 50  # Get up to 50 tools per run
 SCROLL_PAUSE = 2  # seconds to wait after scrolling
 DETAIL_PAGE_DELAY = 3  # seconds between detail page visits
 
@@ -144,36 +144,52 @@ class PlaywrightScraper:
                     }
                 }
                 
-                // Extract full description from product string
-                let description = '';
+                // Extract FULL description with all content (paragraphs, headings, lists)
+                let descriptionFull = '';
+                let descriptionShort = '';
+                
                 const descContainer = document.querySelector('.sv-product-page__string, .sv-product-string');
                 
                 if (descContainer) {
-                    // Get all paragraphs, excluding headings
-                    const paragraphs = Array.from(descContainer.querySelectorAll('p'))
-                        .map(p => p.textContent.trim())
-                        .filter(text => text.length > 30);
+                    // Clone the container to manipulate it
+                    const clone = descContainer.cloneNode(true);
                     
-                    // Join first 2-3 paragraphs for a good description
-                    description = paragraphs.slice(0, 3).join(' ');
+                    // Remove unwanted elements
+                    clone.querySelectorAll('script, style, .advertisement').forEach(el => el.remove());
+                    
+                    // Get FULL HTML content (includes <h3>, <ul>, <li>, etc.)
+                    descriptionFull = clone.innerHTML.trim();
+                    
+                    // Get short description (first paragraph only for homepage preview)
+                    const firstPara = descContainer.querySelector('p');
+                    if (firstPara) {
+                        descriptionShort = firstPara.textContent.trim();
+                    }
                 }
                 
-                // Fallback: try to get any description
-                if (!description) {
-                    const altDesc = document.querySelector('.sv-product-page__meta, .sv-product-page__description');
-                    if (altDesc) {
-                        description = altDesc.textContent.trim();
-                    }
+                // Fallback for short description
+                if (!descriptionShort) {
+                    const paragraphs = Array.from(document.querySelectorAll('main p, article p'))
+                        .map(p => p.textContent.trim())
+                        .filter(text => text.length > 30);
+                    descriptionShort = paragraphs[0] || 'No description available';
+                }
+                
+                // Fallback for full description
+                if (!descriptionFull) {
+                    descriptionFull = descriptionShort;
                 }
                 
                 return {
                     category: category,
                     price_type: priceType,
-                    description: description || 'No description available'
+                    description_short: descriptionShort.substring(0, 200), // Max 200 chars for homepage
+                    description_full: descriptionFull
                 };
             }''')
             
             print(f"      ✅ Category: {details['category']}, Price: {details['price_type']}")
+            print(f"      📝 Short: {len(details['description_short'])} chars, Full: {len(details['description_full'])} chars")
             return details
             
         except Exception as e:
@@ -181,7 +197,8 @@ class PlaywrightScraper:
             return {
                 'category': 'AI Tools',
                 'price_type': 'Unknown',
-                'description': 'No description available'
+                'description_short': 'No description available',
+                'description_full': 'No description available'
             }
     
     async def extract_tools_from_page(self):
@@ -346,8 +363,12 @@ class PlaywrightScraper:
                 # Merge data
                 tool.update(details)
                 
-                # Modify content for uniqueness
-                tool['description'] = self.modifier.modify_description(tool['description'])
+                # Modify SHORT description for uniqueness (homepage)
+                tool['description_short'] = self.modifier.modify_description(tool['description_short'])
+                
+                # Keep full description as-is (with HTML tags)
+                # Don't modify it to preserve structure
+                
                 tool['tags'] = self.modifier.modify_tags(tool['tags'])
                 
                 processed_tools.append(tool)
@@ -377,11 +398,12 @@ class PlaywrightScraper:
                 print(f"⏭️  Tool already exists: {tool_data['name']}")
                 return False
             
-            # Create tool document
+            # Create tool document with both short and full description
             tool = {
                 'id': str(uuid.uuid4()),
                 'name': tool_data['name'][:100],
-                'description': tool_data['description'][:500] or 'No description available',
+                'description': tool_data.get('description_short', 'No description available')[:200],  # For homepage
+                'description_full': tool_data.get('description_full', tool_data.get('description_short', 'No description available')),  # For detail page
                 'category': tool_data.get('category', 'AI Tools'),
                 'tags': tool_data.get('tags', [])[:10],
                 'price_type': tool_data.get('price_type', 'Unknown'),
@@ -408,7 +430,7 @@ class PlaywrightScraper:
 async def sync_tools():
     """Main sync function"""
     print("="*60)
-    print("🚀 Starting AI Tools Sync (Enhanced with Detail Pages)")
+    print("🚀 Starting AI Tools Sync (Enhanced with Full Description)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"🌐 Source: {SOURCE_URL}")
     print(f"📊 Max tools per run: {MAX_TOOLS_PER_RUN}")
@@ -433,7 +455,8 @@ async def sync_tools():
                 print(f"   Category: {sample.get('category', 'N/A')}")
                 print(f"   Price: {sample.get('price_type', 'N/A')}")
                 print(f"   URL: {sample['website_url'][:60]}...")
-                print(f"   Description: {sample['description'][:100]}...")
+                print(f"   Short Desc: {sample.get('description_short', 'N/A')[:100]}...")
+                print(f"   Full Desc Length: {len(sample.get('description_full', ''))} chars")
                 print(f"   Image: {sample.get('image_url', 'N/A')[:60]}...")
                 print()
             

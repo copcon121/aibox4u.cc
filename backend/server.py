@@ -456,7 +456,30 @@ async def trigger_sync_tools(current_admin: str = Depends(get_current_admin)):
             status_code=500,
             detail=f"Sync failed: {str(e)}"
         )
+# ... các endpoints khác ...
 
+# ====== THÊM ĐOẠN NÀY VÀO ĐÂY ======
+@app.route('/tools/<tool_id>', methods=['GET'])
+async def get_tool_detail(tool_id):
+    """Get single tool detail by ID"""
+    try:
+        tool = await db.tools.find_one({'id': tool_id})
+        
+        if not tool:
+            return jsonify({'error': 'Tool not found'}), 404
+        
+        # Convert ObjectId to string
+        tool['_id'] = str(tool['_id'])
+        
+        return jsonify(tool)
+    except Exception as e:
+        print(f"Error fetching tool: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+# ====== KẾT THÚC ĐOẠN THÊM VÀO ======
+
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
 @api_router.get("/admin/sync-status")
 async def get_sync_status(current_admin: str = Depends(get_current_admin)):
     """Get last sync status"""
