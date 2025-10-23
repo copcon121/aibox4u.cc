@@ -30,7 +30,11 @@ const ToolsManagement = () => {
 
   const fetchTools = async () => {
     try {
-      const response = await axios.get(`${API}/tools`);
+      const response = await axios.get(`${API}/tools`, {
+        params: {
+          limit: 200
+        }
+      });
       setTools(response.data);
       setLoading(false);
     } catch (error) {
