@@ -6,7 +6,8 @@ import uuid
 # Tool Models
 class ToolBase(BaseModel):
     name: str
-    description: str
+    description: str  # Short description for homepage
+    description_full: Optional[str] = None  # Full HTML description for detail page
     category: str
     tags: List[str]
     price_type: str  # Free, Paid, Freemium
@@ -14,7 +15,7 @@ class ToolBase(BaseModel):
     image_url: Optional[str] = None
     is_featured: bool = False
     featured_order: Optional[int] = None
-    is_active: bool = True  # New field for enabling/disabling tools
+    is_active: bool = True
 
 class ToolCreate(ToolBase):
     pass
@@ -23,12 +24,15 @@ class Tool(ToolBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    synced_from: Optional[str] = None  # Source URL
+    synced_at: Optional[datetime] = None  # Last sync time
 
     class Config:
         json_schema_extra = {
             "example": {
                 "name": "ChatGPT",
                 "description": "AI-powered chatbot for conversations",
+                "description_full": "<p>Full HTML description...</p>",
                 "category": "Chatbot",
                 "tags": ["AI", "Chat", "NLP"],
                 "price_type": "Freemium",
