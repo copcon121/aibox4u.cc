@@ -101,7 +101,7 @@ class PlaywrightScraper:
     async def extract_tool_details(self, tool_url):
         """Visit tool detail page and extract full information"""
         try:
-            print(f"   🔍 Visiting: {tool_url}")
+            print(f"   🔍 Visiting detail page...")
             await self.page.goto(tool_url, wait_until='networkidle', timeout=30000)
             await self.page.wait_for_timeout(2000)
             
@@ -206,7 +206,7 @@ class PlaywrightScraper:
         try:
             # Wait for content to load
             print("⏳ Waiting for content to load...")
-            await self.page.wait_for_timeout(5000)  # Wait 5 seconds for JS to render
+            await self.page.wait_for_timeout(5000)
             
             # Scroll slowly to load ALL content and trigger lazy loading
             print("📜 Scrolling to load more content...")
@@ -217,13 +217,12 @@ class PlaywrightScraper:
             while current_position < total_height:
                 current_position += viewport_height
                 await self.page.evaluate(f'window.scrollTo(0, {current_position})')
-                await self.page.wait_for_timeout(1500)  # Wait 1.5s per scroll
-                # Update total height as page may load more content
+                await self.page.wait_for_timeout(1500)
                 total_height = await self.page.evaluate('document.body.scrollHeight')
             
             print(f"   ✅ Scrolled to bottom ({total_height}px)")
             
-            # Trigger lazy loading for images - scroll to each element individually
+            # Trigger lazy loading for images
             print("🖼️  Triggering lazy image loading...")
             image_count = await self.page.evaluate('''() => {
                 const elements = document.querySelectorAll('div[role="img"], .sv-tile__image');
@@ -231,7 +230,6 @@ class PlaywrightScraper:
             }''')
             print(f"   Found {image_count} images to load...")
             
-            # Scroll to each image element to trigger lazy loading
             batch_size = 10
             for i in range(0, image_count, batch_size):
                 await self.page.evaluate(f'''() => {{
@@ -244,7 +242,7 @@ class PlaywrightScraper:
                 await self.page.wait_for_timeout(1000)
                 print(f"   Loading batch {i//batch_size + 1}/{(image_count + batch_size - 1)//batch_size}...")
             
-            print("   ✅ All images triggered, waiting for load...")
+            print("   ✅ All images triggered")
             await self.page.wait_for_timeout(3000)
             
             # Get all tool links
@@ -282,7 +280,6 @@ class PlaywrightScraper:
                                    link.getAttribute('aria-label') ||
                                    'Unknown Tool';
                         
-                        // Extract image from div with role="img" and background-image
                         let imageUrl = '';
                         
                         const imgDiv = container?.querySelector('div[role="img"]') || 
@@ -347,7 +344,7 @@ class PlaywrightScraper:
             
             print("✅ Page loaded")
             
-            # Extract tool list
+            # Extract tool list from main page
             tools = await self.extract_tools_from_page()
             
             if not tools:
@@ -360,7 +357,7 @@ class PlaywrightScraper:
             for i, tool in enumerate(tools, 1):
                 print(f"\n📄 [{i}/{len(tools)}] {tool['name']}")
                 
-                # Get details from tool page
+                # Get details from tool detail page
                 details = await self.extract_tool_details(tool['website_url'])
                 
                 # Merge data
