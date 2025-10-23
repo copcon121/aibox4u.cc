@@ -456,11 +456,7 @@ async def trigger_sync_tools(current_admin: str = Depends(get_current_admin)):
             status_code=500,
             detail=f"Sync failed: {str(e)}"
         )
-# ... các endpoints khác ...
 
-
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
 @api_router.get("/admin/sync-status")
 async def get_sync_status(current_admin: str = Depends(get_current_admin)):
     """Get last sync status"""
