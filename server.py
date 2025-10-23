@@ -34,7 +34,7 @@ api_router = APIRouter(prefix="/api")
 # Root endpoint
 @api_router.get("/")
 async def root():
-    return {"message": "AI Tools Directory API", "version": "1.0.0"}
+    return {"message": "AI Tools Directory API", "version": "1.0.1"}
 
 # Get all tools with filters
 @api_router.get("/tools", response_model=List[Tool])
