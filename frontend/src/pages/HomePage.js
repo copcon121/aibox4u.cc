@@ -107,7 +107,7 @@ const HomePage = () => {
             ) : (
               <>
                 <div className="logo-icon">AI</div>
-                <span>AI TOOLS<br />DIRECTORY</span>
+                <span>AI BOX<br />FOR YOU</span>
               </>
             )}
           </a>
