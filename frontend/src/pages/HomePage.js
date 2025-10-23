@@ -10,6 +10,13 @@ const HomePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
+  // Site settings state - THÊM MỚI
+  const [siteSettings, setSiteSettings] = useState({
+    site_name: 'AI Tools Directory',
+    site_logo_url: '',
+    site_description: "The world's best curated list of AI Tools"
+  });
+  
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -19,11 +26,23 @@ const HomePage = () => {
 
   useEffect(() => {
     fetchData();
+    fetchSiteSettings(); // THÊM MỚI
   }, []);
 
   useEffect(() => {
     fetchTools();
   }, [searchQuery, selectedCategory, selectedPriceType]);
+
+  // THÊM FUNCTION MỚI
+  const fetchSiteSettings = async () => {
+    try {
+      const response = await axios.get(`${API}/admin/site-settings`);
+      setSiteSettings(response.data);
+    } catch (err) {
+      console.error('Error fetching site settings:', err);
+      // Giữ giá trị mặc định nếu API lỗi
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -65,7 +84,7 @@ const HomePage = () => {
   };
 
   if (loading) {
-    return <div className="loading">Loading AI Tools Directory...</div>;
+    return <div className="loading">Loading {siteSettings.site_name}...</div>;
   }
 
   if (error) {
@@ -78,8 +97,19 @@ const HomePage = () => {
       <div className="hero-section">
         <div className="logo-section">
           <a href="/" className="logo">
-            <div className="logo-icon">AI</div>
-            <span>AI TOOLS<br />DIRECTORY</span>
+            {/* THAY ĐỔI: Hiển thị logo động */}
+            {siteSettings.site_logo_url ? (
+              <img 
+                src={siteSettings.site_logo_url} 
+                alt={siteSettings.site_name} 
+                style={{ height: '50px', maxWidth: '200px', objectFit: 'contain' }}
+              />
+            ) : (
+              <>
+                <div className="logo-icon">AI</div>
+                <span>AI TOOLS<br />DIRECTORY</span>
+              </>
+            )}
           </a>
           <div className="header-buttons">
             <button className="btn-header btn-submit">Submit Tool</button>
@@ -87,8 +117,9 @@ const HomePage = () => {
           </div>
         </div>
         <div className="hero-content">
-          <h1 className="hero-title">AI Tools Directory</h1>
-          <p className="hero-subtitle">The world's best curated list of AI Tools</p>
+          {/* THAY ĐỔI: Dùng siteSettings thay vì hard-coded */}
+          <h1 className="hero-title">{siteSettings.site_name}</h1>
+          <p className="hero-subtitle">{siteSettings.site_description}</p>
         </div>
       </div>
 
