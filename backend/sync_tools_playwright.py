@@ -25,9 +25,9 @@ db = client[os.environ['DB_NAME']]
 # Configuration
 SOURCE_URL = "https://aitoolsdirectory.com"
 RATE_LIMIT_DELAY = 3  # seconds between requests
-MAX_TOOLS_PER_RUN = 10  # Reduced because we visit detail pages
+MAX_TOOLS_PER_RUN = 50  # Reduced because we visit detail pages
 SCROLL_PAUSE = 2  # seconds to wait after scrolling
-DETAIL_PAGE_DELAY = 2  # seconds between detail page visits
+DETAIL_PAGE_DELAY = 3  # seconds between detail page visits
 
 class ContentModifier:
     """Modify scraped content to make it unique"""
