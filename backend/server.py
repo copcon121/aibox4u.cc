@@ -208,7 +208,24 @@ async def toggle_tool_featured(tool_id: str, current_admin: str = Depends(get_cu
     )
     
     return {"message": "Tool featured status updated", "is_featured": new_status}
+# Create new tool (admin endpoint with authentication)
+@api_router.post("/admin/tools", response_model=Tool)
+async def create_tool_admin(tool_input: ToolCreate, current_admin: str = Depends(get_current_admin)):
+    tool_dict = tool_input.dict()
+    
+    # Set defaults
+    tool_dict["is_active"] = tool_dict.get("is_active", True)
+    tool_dict["is_featured"] = tool_dict.get("is_featured", False)
+    
+    tool = Tool(**tool_dict)
+    await db.tools.insert_one(tool.dict())
+    return tool
 
+# Get all tools for admin (including inactive)
+@api_router.get("/admin/tools", response_model=List[Tool])
+async def get_all_tools_admin(current_admin: str = Depends(get_current_admin)):
+    tools = await db.tools.find({}).sort("created_at", -1).to_list(1000)
+    return [Tool(**tool) for tool in tools]
 # Update tool (admin endpoint with authentication)
 @api_router.put("/admin/tools/{tool_id}", response_model=Tool)
 async def update_tool_admin(tool_id: str, tool_input: ToolCreate, current_admin: str = Depends(get_current_admin)):

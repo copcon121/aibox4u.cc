@@ -6,6 +6,7 @@ const ToolsManagement = () => {
   const [tools, setTools] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+<<<<<<< HEAD
   const [showModal, setShowModal] = useState(false);
   const [editingTool, setEditingTool] = useState(null);
   const [formData, setFormData] = useState({
@@ -19,6 +20,9 @@ const ToolsManagement = () => {
     is_active: true,
     is_featured: false
   });
+=======
+  const [togglingTools, setTogglingTools] = useState(new Set());
+>>>>>>> de4cc3e8577913663049d1c59d1499c36053d6c7
   const { getAuthHeader } = useAuth();
 
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -40,40 +44,88 @@ const ToolsManagement = () => {
   };
 
   const toggleActive = async (toolId) => {
+    // Prevent multiple simultaneous toggles for the same tool
+    if (togglingTools.has(toolId)) {
+      return;
+    }
+
     try {
+<<<<<<< HEAD
+=======
+      setTogglingTools(prev => new Set(prev).add(toolId));
+      
+>>>>>>> de4cc3e8577913663049d1c59d1499c36053d6c7
       const response = await axios.patch(
         `${API}/admin/tools/${toolId}/toggle-active`,
         {},
         { headers: getAuthHeader() }
       );
       
+<<<<<<< HEAD
       // Update local state with the new status from backend
+=======
+      // Update local state with the actual backend response
+>>>>>>> de4cc3e8577913663049d1c59d1499c36053d6c7
       setTools(tools.map(tool =>
         tool.id === toolId ? { ...tool, is_active: response.data.is_active } : tool
       ));
       
     } catch (error) {
       console.error('Error toggling active status:', error);
+<<<<<<< HEAD
       alert('Failed to update tool status: ' + (error.response?.data?.detail || error.message));
+=======
+      alert('Failed to update tool status');
+    } finally {
+      setTogglingTools(prev => {
+        const next = new Set(prev);
+        next.delete(toolId);
+        return next;
+      });
+>>>>>>> de4cc3e8577913663049d1c59d1499c36053d6c7
     }
   };
 
   const toggleFeatured = async (toolId) => {
+    // Prevent multiple simultaneous toggles for the same tool
+    if (togglingTools.has(toolId)) {
+      return;
+    }
+
     try {
+<<<<<<< HEAD
+=======
+      setTogglingTools(prev => new Set(prev).add(toolId));
+      
+>>>>>>> de4cc3e8577913663049d1c59d1499c36053d6c7
       const response = await axios.patch(
         `${API}/admin/tools/${toolId}/toggle-featured`,
         {},
         { headers: getAuthHeader() }
       );
       
+<<<<<<< HEAD
       // Update local state with the new status from backend
+=======
+      // Update local state with the actual backend response
+>>>>>>> de4cc3e8577913663049d1c59d1499c36053d6c7
       setTools(tools.map(tool =>
         tool.id === toolId ? { ...tool, is_featured: response.data.is_featured } : tool
       ));
       
     } catch (error) {
       console.error('Error toggling featured status:', error);
+<<<<<<< HEAD
       alert('Failed to update featured status: ' + (error.response?.data?.detail || error.message));
+=======
+      alert('Failed to update featured status');
+    } finally {
+      setTogglingTools(prev => {
+        const next = new Set(prev);
+        next.delete(toolId);
+        return next;
+      });
+>>>>>>> de4cc3e8577913663049d1c59d1499c36053d6c7
     }
   };
 
@@ -263,10 +315,15 @@ const ToolsManagement = () => {
                   <td className="px-6 py-4 text-center">
                     <button
                       onClick={() => toggleActive(tool.id)}
+                      disabled={togglingTools.has(tool.id)}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                         tool.is_active ? 'bg-green-500' : 'bg-gray-300'
+<<<<<<< HEAD
                       }`}
                       title={tool.is_active ? 'Click to deactivate' : 'Click to activate'}
+=======
+                      } ${togglingTools.has(tool.id) ? 'opacity-50 cursor-not-allowed' : ''}`}
+>>>>>>> de4cc3e8577913663049d1c59d1499c36053d6c7
                     >
                       <span
                         className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -278,10 +335,15 @@ const ToolsManagement = () => {
                   <td className="px-6 py-4 text-center">
                     <button
                       onClick={() => toggleFeatured(tool.id)}
+                      disabled={togglingTools.has(tool.id)}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                         tool.is_featured ? 'bg-yellow-500' : 'bg-gray-300'
+<<<<<<< HEAD
                       }`}
                       title={tool.is_featured ? 'Click to unfeature' : 'Click to feature'}
+=======
+                      } ${togglingTools.has(tool.id) ? 'opacity-50 cursor-not-allowed' : ''}`}
+>>>>>>> de4cc3e8577913663049d1c59d1499c36053d6c7
                     >
                       <span
                         className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
