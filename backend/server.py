@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Response, Query
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -46,11 +46,14 @@ async def root():
 # Get all tools with filters
 @api_router.get("/tools", response_model=List[Tool])
 async def get_tools(
+    response: Response,
     search: Optional[str] = None,
     category: Optional[str] = None,
     price_type: Optional[str] = None,
     sort_by: str = "created_at",
-    sort_order: str = "desc"
+    sort_order: str = "desc",
+    page: int = Query(1, ge=1),
+    limit: int = Query(24, ge=1, le=500)
 ):
     query = {}
     
@@ -69,7 +72,22 @@ async def get_tools(
     
     sort_direction = -1 if sort_order == "desc" else 1
     
-    tools = await db.tools.find(query).sort(sort_by, sort_direction).to_list(1000)
+    skip = (page - 1) * limit
+
+    tools_cursor = (
+        db.tools
+        .find(query)
+        .sort(sort_by, sort_direction)
+        .skip(skip)
+        .limit(limit)
+    )
+
+    tools = await tools_cursor.to_list(length=limit)
+    total_count = await db.tools.count_documents(query)
+    response.headers["X-Total-Count"] = str(total_count)
+    response.headers["X-Page"] = str(page)
+    response.headers["X-Limit"] = str(limit)
+
     return [Tool(**tool) for tool in tools]
 
 # Get featured tools
