@@ -7,6 +7,7 @@ const ToolsManagement = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [togglingTools, setTogglingTools] = useState(new Set());
+  const [deletingTools, setDeletingTools] = useState(new Set());
   const { getAuthHeader } = useAuth();
 
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -94,15 +95,39 @@ const ToolsManagement = () => {
       return;
     }
 
+    // Prevent multiple simultaneous deletes for the same tool
+    if (deletingTools.has(toolId)) {
+      return;
+    }
+
     try {
+      setDeletingTools(prev => new Set(prev).add(toolId));
+      
       await axios.delete(`${API}/admin/tools/${toolId}`, {
         headers: getAuthHeader()
       });
-      setTools(tools.filter(tool => tool.id !== toolId));
+      
+      // Update local state using functional setState to avoid stale closure issues
+      setTools(prevTools => prevTools.filter(tool => tool.id !== toolId));
       alert('Tool deleted successfully');
     } catch (error) {
       console.error('Error deleting tool:', error);
-      alert('Failed to delete tool');
+      
+      // Show more detailed error message
+      const errorMessage = error.response?.data?.detail || 
+                          error.response?.data?.message || 
+                          error.message || 
+                          'Failed to delete tool';
+      alert(`Failed to delete tool: ${errorMessage}`);
+      
+      // Refresh tools list to ensure UI is in sync with backend state
+      await fetchTools();
+    } finally {
+      setDeletingTools(prev => {
+        const next = new Set(prev);
+        next.delete(toolId);
+        return next;
+      });
     }
   };
 
@@ -211,9 +236,12 @@ const ToolsManagement = () => {
                   <td className="px-6 py-4 text-center">
                     <button
                       onClick={() => deleteTool(tool.id)}
-                      className="text-red-600 hover:text-red-800 font-medium transition-colors"
+                      disabled={deletingTools.has(tool.id)}
+                      className={`text-red-600 hover:text-red-800 font-medium transition-colors ${
+                        deletingTools.has(tool.id) ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
                     >
-                      Delete
+                      {deletingTools.has(tool.id) ? 'Deleting...' : 'Delete'}
                     </button>
                   </td>
                 </tr>
