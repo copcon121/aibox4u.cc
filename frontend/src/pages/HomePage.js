@@ -16,6 +16,10 @@ const HomePage = () => {
     site_logo_url: '',
     site_description: "Explore the ultimate AI toolbox — trusted, verified, and beautifully organized"
   });
+
+  useEffect(() => {
+    document.title = 'AI BOX FOR YOU';
+  }, []);
   
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -99,8 +103,8 @@ const HomePage = () => {
           <a href="/" className="logo">
             {/* THAY ĐỔI: Hiển thị logo động */}
             {siteSettings.site_logo_url ? (
-              <img 
-                src={siteSettings.site_logo_url} 
+              <img
+                src={siteSettings.site_logo_url}
                 alt={siteSettings.site_name} 
                 style={{ height: '50px', maxWidth: '200px', objectFit: 'contain' }}
               />
@@ -111,10 +115,6 @@ const HomePage = () => {
               </>
             )}
           </a>
-          <div className="header-buttons">
-            <button className="btn-header btn-submit">Submit Tool</button>
-            <button className="btn-header btn-advertise">Advertise</button>
-          </div>
         </div>
         <div className="hero-content">
           {/* THAY ĐỔI: Dùng siteSettings thay vì hard-coded */}
