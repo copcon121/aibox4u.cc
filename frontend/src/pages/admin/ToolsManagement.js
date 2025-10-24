@@ -2,15 +2,10 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 
-const ToolsManagement = () => {
-  const [tools, setTools] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showModal, setShowModal] = useState(false);
-  const [editingTool, setEditingTool] = useState(null);
-  const [formData, setFormData] = useState({
+const createEmptyFormData = () => ({
     name: '',
     description: '',
+    description_full: '',
     category: '',
     price_type: 'Free',
     website_url: '',  // ✅ ĐÃ SỬA: Đổi từ 'url' thành 'website_url'
@@ -19,7 +14,24 @@ const ToolsManagement = () => {
     is_active: true,
     is_featured: false
   });
+});
+
+const ToolsManagement = () => {
+  const [tools, setTools] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [editingTool, setEditingTool] = useState(null);
+  const [isFullDescriptionPreviewVisible, setIsFullDescriptionPreviewVisible] = useState(true);
+  const [formData, setFormData] = useState(createEmptyFormData);
   const { getAuthHeader } = useAuth();
+
+  const resetModalState = () => {
+    setShowModal(false);
+    setEditingTool(null);
+    setFormData(createEmptyFormData());
+    setIsFullDescriptionPreviewVisible(true);
+  };
 
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
   const API = `${BACKEND_URL}/api`;
@@ -99,17 +111,8 @@ const ToolsManagement = () => {
 
   const handleAddNew = () => {
     setEditingTool(null);
-    setFormData({
-      name: '',
-      description: '',
-      category: '',
-      price_type: 'Free',
-      website_url: '',  // ✅ ĐÃ SỬA: Đổi từ 'url' thành 'website_url'
-      image_url: '',
-      tags: '',
-      is_active: true,
-      is_featured: false
-    });
+    setFormData(createEmptyFormData());
+    setIsFullDescriptionPreviewVisible(true);
     setShowModal(true);
   };
 
@@ -118,6 +121,7 @@ const ToolsManagement = () => {
     setFormData({
       name: tool.name || '',
       description: tool.description || '',
+      description_full: tool.description_full || '',
       category: tool.category || '',
       price_type: tool.price_type || 'Free',
       website_url: tool.website_url || '',  // ✅ ĐÃ SỬA: Đổi từ 'tool.url' thành 'tool.website_url'
@@ -126,6 +130,7 @@ const ToolsManagement = () => {
       is_active: tool.is_active !== undefined ? tool.is_active : true,
       is_featured: tool.is_featured !== undefined ? tool.is_featured : false
     });
+    setIsFullDescriptionPreviewVisible(true);
     setShowModal(true);
   };
 
@@ -162,9 +167,8 @@ const ToolsManagement = () => {
         alert('Tool created successfully!');
       }
 
-      setShowModal(false);
-      setEditingTool(null);
-      
+      resetModalState();
+
     } catch (error) {
       console.error('Error saving tool:', error);
       alert('Failed to save tool: ' + (error.response?.data?.detail || error.message));
@@ -355,6 +359,55 @@ const ToolsManagement = () => {
                   />
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Full Description (HTML)
+                  </label>
+                  <textarea
+                    value={formData.description_full}
+                    onChange={(e) => handleChange('description_full', e.target.value)}
+                    rows="8"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                    placeholder="<p>Fully describe the tool with HTML formatting...</p>"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Supports HTML content shown on the tool detail page.</p>
+                  {isFullDescriptionPreviewVisible && (
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-700">Preview</span>
+                        <button
+                          type="button"
+                          onClick={() => setIsFullDescriptionPreviewVisible(false)}
+                          className="text-xs text-purple-600 hover:text-purple-700 font-medium"
+                        >
+                          Hide preview
+                        </button>
+                      </div>
+                      <div className="border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50 max-h-60 overflow-y-auto">
+                        {formData.description_full ? (
+                          <div
+                            className="prose max-w-none text-gray-800"
+                            dangerouslySetInnerHTML={{ __html: formData.description_full }}
+                          />
+                        ) : (
+                          <p className="text-sm text-gray-400 italic">No full description yet. Start typing above to see a preview.</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {!isFullDescriptionPreviewVisible && (
+                    <div className="mt-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setIsFullDescriptionPreviewVisible(true)}
+                        className="text-xs text-purple-600 hover:text-purple-700 font-medium"
+                      >
+                        Show preview
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -452,7 +505,7 @@ const ToolsManagement = () => {
                 <div className="flex justify-end space-x-3 pt-4">
                   <button
                     type="button"
-                    onClick={() => setShowModal(false)}
+                    onClick={resetModalState}
                     className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition font-medium"
                   >
                     Cancel
