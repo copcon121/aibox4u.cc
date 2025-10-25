@@ -189,6 +189,18 @@
   box-shadow: 0 12px 40px rgba(185, 28, 143, 0.2);
 }
 
+.featured-image-wrapper,
+.tool-image-wrapper {
+  display: block;
+  cursor: pointer;
+}
+
+.featured-image-wrapper:focus-visible,
+.tool-image-wrapper:focus-visible {
+  outline: 3px solid #b91c8f;
+  outline-offset: -3px;
+}
+
 .featured-badge {
   background: linear-gradient(135deg, #b91c8f 0%, #7b1fa2 100%);
   color: white;
