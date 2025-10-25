@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { API } from '../App';
 
 const HomePage = () => {
@@ -26,8 +26,6 @@ const HomePage = () => {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedPriceType, setSelectedPriceType] = useState('All');
   
-  const navigate = useNavigate();
-
   useEffect(() => {
     fetchData();
     fetchSiteSettings(); // THÊM MỚI
@@ -88,8 +86,9 @@ const HomePage = () => {
     return identifier ? `/tool/${identifier}` : '/tool';
   };
 
-  const handleToolClick = (tool) => {
-    navigate(getToolPath(tool));
+  const getToolAriaLabel = (tool) => {
+    const name = tool?.name?.trim();
+    return name ? `Open ${name} details` : 'Open tool details';
   };
 
   if (loading) {
@@ -174,7 +173,7 @@ const HomePage = () => {
                 <Link
                   to={getToolPath(tool)}
                   className="featured-image-wrapper"
-                  aria-label={`Open ${tool.name} details`}
+                  aria-label={getToolAriaLabel(tool)}
                 >
                   <img
                     src={tool.image_url}
@@ -208,7 +207,7 @@ const HomePage = () => {
                 <Link
                   to={getToolPath(tool)}
                   className="tool-image-wrapper"
-                  aria-label={`Open ${tool.name} details`}
+                  aria-label={getToolAriaLabel(tool)}
                 >
                   <img
                     src={tool.image_url}
@@ -230,9 +229,9 @@ const HomePage = () => {
                   <p className="tool-description">{tool.description}</p>
                   <div className="tool-footer">
                     <span className="price-badge">{tool.price_type}</span>
-                    <button className="btn-details" onClick={() => handleToolClick(tool)}>
+                    <Link className="btn-details" to={getToolPath(tool)}>
                       Details
-                    </button>
+                    </Link>
                   </div>
                 </div>
               </div>
