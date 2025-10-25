@@ -166,7 +166,20 @@ const HomePage = () => {
             {featuredTools.map((tool) => (
               <div key={tool.id} className="featured-card">
                 <div className="featured-badge">Featured Tool: {tool.name}</div>
-                <img src={tool.image_url} alt={tool.name} className="featured-image" />
+                <div
+                  className="featured-image-wrapper"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleToolClick(tool.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleToolClick(tool.id);
+                    }
+                  }}
+                >
+                  <img src={tool.image_url} alt={tool.name} className="featured-image" />
+                </div>
                 <div className="featured-content">
                   <h3 className="featured-title">{tool.name}</h3>
                   <p className="featured-description">{tool.description}</p>
@@ -189,7 +202,20 @@ const HomePage = () => {
           <div className="tools-grid">
             {tools.map((tool) => (
               <div key={tool.id} className="tool-card">
-                <img src={tool.image_url} alt={tool.name} className="tool-image" />
+                <div
+                  className="tool-image-wrapper"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleToolClick(tool.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleToolClick(tool.id);
+                    }
+                  }}
+                >
+                  <img src={tool.image_url} alt={tool.name} className="tool-image" />
+                </div>
                 <div className="tool-content">
                   <div className="tool-header">
                     <h3 className="tool-name">{tool.name}</h3>
