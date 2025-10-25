@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { API } from '../App';
 
 const HomePage = () => {
@@ -83,8 +83,13 @@ const HomePage = () => {
     }
   };
 
-  const handleToolClick = (toolId) => {
-    navigate(`/tool/${toolId}`);
+  const getToolPath = (tool) => {
+    const identifier = tool?.slug || tool?.id;
+    return identifier ? `/tool/${identifier}` : '/tool';
+  };
+
+  const handleToolClick = (tool) => {
+    navigate(getToolPath(tool));
   };
 
   if (loading) {
@@ -164,9 +169,20 @@ const HomePage = () => {
           <h2 className="section-title">Featured Tools</h2>
           <div className="featured-grid">
             {featuredTools.map((tool) => (
-              <div key={tool.id} className="featured-card">
+              <div key={tool.id || tool.slug} className="featured-card">
                 <div className="featured-badge">Featured Tool: {tool.name}</div>
-                <img src={tool.image_url} alt={tool.name} className="featured-image" />
+                <Link
+                  to={getToolPath(tool)}
+                  className="featured-image-wrapper"
+                  aria-label={`Open ${tool.name} details`}
+                >
+                  <img
+                    src={tool.image_url}
+                    alt={tool.name}
+                    className="featured-image"
+                    loading="lazy"
+                  />
+                </Link>
                 <div className="featured-content">
                   <h3 className="featured-title">{tool.name}</h3>
                   <p className="featured-description">{tool.description}</p>
@@ -188,8 +204,19 @@ const HomePage = () => {
         ) : (
           <div className="tools-grid">
             {tools.map((tool) => (
-              <div key={tool.id} className="tool-card">
-                <img src={tool.image_url} alt={tool.name} className="tool-image" />
+              <div key={tool.id || tool.slug} className="tool-card">
+                <Link
+                  to={getToolPath(tool)}
+                  className="tool-image-wrapper"
+                  aria-label={`Open ${tool.name} details`}
+                >
+                  <img
+                    src={tool.image_url}
+                    alt={tool.name}
+                    className="tool-image"
+                    loading="lazy"
+                  />
+                </Link>
                 <div className="tool-content">
                   <div className="tool-header">
                     <h3 className="tool-name">{tool.name}</h3>
@@ -203,7 +230,7 @@ const HomePage = () => {
                   <p className="tool-description">{tool.description}</p>
                   <div className="tool-footer">
                     <span className="price-badge">{tool.price_type}</span>
-                    <button className="btn-details" onClick={() => handleToolClick(tool.id)}>
+                    <button className="btn-details" onClick={() => handleToolClick(tool)}>
                       Details
                     </button>
                   </div>
