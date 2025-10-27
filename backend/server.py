@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from models import (
     Tool, ToolCreate, SearchFilter,
     AdminLogin, Admin, Token, SiteSettings, SiteSettingsBase,
-    Page, PageCreate, PageUpdate, Statistics
+    Page, PageCreate, PageUpdate, Statistics, PaginatedTools
 )
 from auth import (
     get_password_hash, verify_password, create_access_token, 
@@ -44,16 +44,18 @@ async def root():
     return {"message": "AI Tools Directory API", "version": "1.0.1"}
 
 # Get all tools with filters
-@api_router.get("/tools", response_model=List[Tool])
+@api_router.get("/tools", response_model=PaginatedTools)
 async def get_tools(
     search: Optional[str] = None,
     category: Optional[str] = None,
     price_type: Optional[str] = None,
     sort_by: str = "created_at",
-    sort_order: str = "desc"
+    sort_order: str = "desc",
+    page: int = 1,
+    page_size: int = 60
 ):
     query = {}
-    
+
     if search:
         query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
@@ -66,11 +68,32 @@ async def get_tools(
     
     if price_type and price_type != "All":
         query["price_type"] = price_type
-    
+
+    if page < 1:
+        raise HTTPException(status_code=400, detail="Page must be greater than 0")
+
+    if page_size < 1 or page_size > 100:
+        raise HTTPException(status_code=400, detail="Page size must be between 1 and 100")
+
     sort_direction = -1 if sort_order == "desc" else 1
-    
-    tools = await db.tools.find(query).sort(sort_by, sort_direction).to_list(1000)
-    return [Tool(**tool) for tool in tools]
+    skip = (page - 1) * page_size
+
+    total = await db.tools.count_documents(query)
+    cursor = (
+        db.tools
+        .find(query)
+        .sort(sort_by, sort_direction)
+        .skip(skip)
+        .limit(page_size)
+    )
+    tools = await cursor.to_list(length=page_size)
+
+    return PaginatedTools(
+        items=[Tool(**tool) for tool in tools],
+        total=total,
+        page=page,
+        page_size=page_size
+    )
 
 # Get featured tools
 @api_router.get("/tools/featured", response_model=List[Tool])

@@ -14,7 +14,6 @@ const createEmptyFormData = () => ({
     is_active: true,
     is_featured: false
   });
-});
 
 const ToolsManagement = () => {
   const [tools, setTools] = useState([]);
@@ -42,11 +41,39 @@ const ToolsManagement = () => {
 
   const fetchTools = async () => {
     try {
-      const response = await axios.get(`${API}/tools`);
-      setTools(response.data);
-      setLoading(false);
+      const pageSize = 100;
+      let currentPage = 1;
+      let hasMore = true;
+      const aggregatedTools = [];
+
+      while (hasMore) {
+        const response = await axios.get(`${API}/tools`, {
+          params: {
+            page: currentPage,
+            page_size: pageSize
+          }
+        });
+
+        const data = response.data;
+        const items = Array.isArray(data) ? data : data.items || [];
+
+        aggregatedTools.push(...items);
+
+        if (items.length === 0) {
+          hasMore = false;
+        } else if (!Array.isArray(data) && typeof data.total === 'number') {
+          hasMore = currentPage * pageSize < data.total;
+        } else {
+          hasMore = items.length === pageSize;
+        }
+
+        currentPage += 1;
+      }
+
+      setTools(aggregatedTools);
     } catch (error) {
       console.error('Error fetching tools:', error);
+    } finally {
       setLoading(false);
     }
   };

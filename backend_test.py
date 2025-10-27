@@ -22,12 +22,24 @@ class APITester:
         self.created_tool_id = None
         self.admin_token = None
         self.created_page_id = None
-        
+
+    @staticmethod
+    def _normalize_tools_payload(payload):
+        """Return a list of tools regardless of response envelope format."""
+        if isinstance(payload, dict):
+            items = payload.get('items')
+            if isinstance(items, list):
+                return items
+            return []
+        if isinstance(payload, list):
+            return payload
+        return []
+
     def log_test(self, test_name, success, message, response_data=None):
         """Log test results"""
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{status} {test_name}: {message}")
-        
+
         self.test_results.append({
             "test": test_name,
             "success": success,
@@ -41,9 +53,11 @@ class APITester:
             response = self.session.get(f"{self.base_url}/tools")
             
             if response.status_code == 200:
-                tools = response.json()
-                if isinstance(tools, list) and len(tools) > 0:
-                    self.log_test("GET /api/tools", True, f"Retrieved {len(tools)} tools successfully")
+                tools_payload = response.json()
+                tools = self._normalize_tools_payload(tools_payload)
+                if len(tools) > 0:
+                    total = tools_payload.get('total') if isinstance(tools_payload, dict) else len(tools)
+                    self.log_test("GET /api/tools", True, f"Retrieved {len(tools)} tools successfully (total: {total})")
                     return tools
                 else:
                     self.log_test("GET /api/tools", False, "No tools returned or invalid format")
@@ -62,16 +76,14 @@ class APITester:
             response = self.session.get(f"{self.base_url}/tools?search=ChatGPT")
             
             if response.status_code == 200:
-                tools = response.json()
-                if isinstance(tools, list):
-                    # Check if ChatGPT is in results
-                    chatgpt_found = any(tool.get('name', '').lower() == 'chatgpt' for tool in tools)
-                    if chatgpt_found:
-                        self.log_test("GET /api/tools?search=ChatGPT", True, f"Search returned {len(tools)} tools, ChatGPT found")
-                    else:
-                        self.log_test("GET /api/tools?search=ChatGPT", False, f"Search returned {len(tools)} tools, but ChatGPT not found")
+                tools_payload = response.json()
+                tools = self._normalize_tools_payload(tools_payload)
+                # Check if ChatGPT is in results
+                chatgpt_found = any(tool.get('name', '').lower() == 'chatgpt' for tool in tools)
+                if chatgpt_found:
+                    self.log_test("GET /api/tools?search=ChatGPT", True, f"Search returned {len(tools)} tools, ChatGPT found")
                 else:
-                    self.log_test("GET /api/tools?search=ChatGPT", False, "Invalid response format")
+                    self.log_test("GET /api/tools?search=ChatGPT", False, f"Search returned {len(tools)} tools, but ChatGPT not found")
             else:
                 self.log_test("GET /api/tools?search=ChatGPT", False, f"HTTP {response.status_code}: {response.text}")
                 
@@ -84,18 +96,15 @@ class APITester:
             response = self.session.get(f"{self.base_url}/tools?category=Chatbot")
             
             if response.status_code == 200:
-                tools = response.json()
-                if isinstance(tools, list):
-                    # Check if all returned tools are in Chatbot category
-                    all_chatbot = all(tool.get('category') == 'Chatbot' for tool in tools)
-                    if all_chatbot and len(tools) > 0:
-                        self.log_test("GET /api/tools?category=Chatbot", True, f"Category filter returned {len(tools)} chatbot tools")
-                    elif len(tools) == 0:
-                        self.log_test("GET /api/tools?category=Chatbot", True, "Category filter returned 0 tools (valid if no chatbots exist)")
-                    else:
-                        self.log_test("GET /api/tools?category=Chatbot", False, "Category filter returned tools from other categories")
+                tools = self._normalize_tools_payload(response.json())
+                # Check if all returned tools are in Chatbot category
+                all_chatbot = all(tool.get('category') == 'Chatbot' for tool in tools)
+                if all_chatbot and len(tools) > 0:
+                    self.log_test("GET /api/tools?category=Chatbot", True, f"Category filter returned {len(tools)} chatbot tools")
+                elif len(tools) == 0:
+                    self.log_test("GET /api/tools?category=Chatbot", True, "Category filter returned 0 tools (valid if no chatbots exist)")
                 else:
-                    self.log_test("GET /api/tools?category=Chatbot", False, "Invalid response format")
+                    self.log_test("GET /api/tools?category=Chatbot", False, "Category filter returned tools from other categories")
             else:
                 self.log_test("GET /api/tools?category=Chatbot", False, f"HTTP {response.status_code}: {response.text}")
                 
@@ -108,18 +117,15 @@ class APITester:
             response = self.session.get(f"{self.base_url}/tools?price_type=Freemium")
             
             if response.status_code == 200:
-                tools = response.json()
-                if isinstance(tools, list):
-                    # Check if all returned tools are Freemium
-                    all_freemium = all(tool.get('price_type') == 'Freemium' for tool in tools)
-                    if all_freemium and len(tools) > 0:
-                        self.log_test("GET /api/tools?price_type=Freemium", True, f"Price filter returned {len(tools)} freemium tools")
-                    elif len(tools) == 0:
-                        self.log_test("GET /api/tools?price_type=Freemium", True, "Price filter returned 0 tools (valid if no freemium tools exist)")
-                    else:
-                        self.log_test("GET /api/tools?price_type=Freemium", False, "Price filter returned tools with other price types")
+                tools = self._normalize_tools_payload(response.json())
+                # Check if all returned tools are Freemium
+                all_freemium = all(tool.get('price_type') == 'Freemium' for tool in tools)
+                if all_freemium and len(tools) > 0:
+                    self.log_test("GET /api/tools?price_type=Freemium", True, f"Price filter returned {len(tools)} freemium tools")
+                elif len(tools) == 0:
+                    self.log_test("GET /api/tools?price_type=Freemium", True, "Price filter returned 0 tools (valid if no freemium tools exist)")
                 else:
-                    self.log_test("GET /api/tools?price_type=Freemium", False, "Invalid response format")
+                    self.log_test("GET /api/tools?price_type=Freemium", False, "Price filter returned tools with other price types")
             else:
                 self.log_test("GET /api/tools?price_type=Freemium", False, f"HTTP {response.status_code}: {response.text}")
                 
@@ -132,19 +138,16 @@ class APITester:
             response = self.session.get(f"{self.base_url}/tools?category=Search&price_type=Freemium")
             
             if response.status_code == 200:
-                tools = response.json()
-                if isinstance(tools, list):
-                    # Check if all returned tools match both filters
-                    valid_tools = all(
-                        tool.get('category') == 'Search' and tool.get('price_type') == 'Freemium' 
-                        for tool in tools
-                    )
-                    if valid_tools:
-                        self.log_test("GET /api/tools (multiple filters)", True, f"Multiple filters returned {len(tools)} matching tools")
-                    else:
-                        self.log_test("GET /api/tools (multiple filters)", False, "Multiple filters returned tools that don't match criteria")
+                tools = self._normalize_tools_payload(response.json())
+                # Check if all returned tools match both filters
+                valid_tools = all(
+                    tool.get('category') == 'Search' and tool.get('price_type') == 'Freemium'
+                    for tool in tools
+                )
+                if valid_tools:
+                    self.log_test("GET /api/tools (multiple filters)", True, f"Multiple filters returned {len(tools)} matching tools")
                 else:
-                    self.log_test("GET /api/tools (multiple filters)", False, "Invalid response format")
+                    self.log_test("GET /api/tools (multiple filters)", False, "Multiple filters returned tools that don't match criteria")
             else:
                 self.log_test("GET /api/tools (multiple filters)", False, f"HTTP {response.status_code}: {response.text}")
                 

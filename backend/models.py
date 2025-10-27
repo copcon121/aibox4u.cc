@@ -43,6 +43,13 @@ class Tool(ToolBase):
             }
         }
 
+
+class PaginatedTools(BaseModel):
+    items: List[Tool]
+    total: int
+    page: int
+    page_size: int
+
 class CategoryModel(BaseModel):
     name: str
     description: Optional[str] = None
