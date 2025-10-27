@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { API } from '../App';
@@ -9,7 +9,10 @@ const HomePage = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+
   // Site settings state - THÊM MỚI
   const [siteSettings, setSiteSettings] = useState({
     site_name: 'AI BOX FOR YOU',
@@ -29,12 +32,17 @@ const HomePage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchData();
+    fetchInitialData();
     fetchSiteSettings(); // THÊM MỚI
   }, []);
 
+  const hasInitializedFilters = useRef(false);
+
   useEffect(() => {
-    fetchTools();
+    if (!hasInitializedFilters.current) {
+      return;
+    }
+    fetchToolsWithFilters(1, true);
   }, [searchQuery, selectedCategory, selectedPriceType]);
 
   // THÊM FUNCTION MỚI
@@ -48,39 +56,100 @@ const HomePage = () => {
     }
   };
 
-  const fetchData = async () => {
+  const PAGE_SIZE = 24;
+
+  const normalizeToolsResponse = (data) => {
+    if (Array.isArray(data)) {
+      return {
+        items: data,
+        total: null,
+        pageSize: data.length || PAGE_SIZE
+      };
+    }
+
+    return {
+      items: data.items || [],
+      total: typeof data.total === 'number' ? data.total : null,
+      pageSize: data.page_size || PAGE_SIZE
+    };
+  };
+
+  const buildToolParams = (pageToLoad) => ({
+    search: searchQuery || undefined,
+    category: selectedCategory !== 'All' ? selectedCategory : undefined,
+    price_type: selectedPriceType !== 'All' ? selectedPriceType : undefined,
+    page: pageToLoad,
+    page_size: PAGE_SIZE
+  });
+
+  const determineHasMore = (pageToLoad, pageSize, total, receivedCount) => {
+    if (typeof total === 'number' && total >= 0) {
+      return pageToLoad * pageSize < total;
+    }
+    return receivedCount === pageSize;
+  };
+
+  const fetchInitialData = async () => {
     try {
       setLoading(true);
+      const params = buildToolParams(1);
       const [toolsRes, featuredRes, categoriesRes] = await Promise.all([
-        axios.get(`${API}/tools`),
+        axios.get(`${API}/tools`, { params }),
         axios.get(`${API}/tools/featured`),
         axios.get(`${API}/categories`)
       ]);
-      
-      setTools(toolsRes.data);
+
+      const { items, total, pageSize } = normalizeToolsResponse(toolsRes.data);
+      setTools(items);
       setFeaturedTools(featuredRes.data);
       setCategories(['All', ...categoriesRes.data]);
-      setLoading(false);
+      setPage(1);
+      setHasMore(determineHasMore(1, pageSize, total, items.length));
+      setError(null);
     } catch (err) {
       console.error('Error fetching data:', err);
       setError('Failed to load tools. Please try again later.');
+    } finally {
+      hasInitializedFilters.current = true;
       setLoading(false);
     }
   };
 
-  const fetchTools = async () => {
+  const fetchToolsWithFilters = async (pageToLoad = 1, replace = true) => {
+    if (pageToLoad === 1) {
+      setLoading(true);
+    } else {
+      setIsFetchingMore(true);
+    }
+
     try {
-      const params = {
-        search: searchQuery || undefined,
-        category: selectedCategory !== 'All' ? selectedCategory : undefined,
-        price_type: selectedPriceType !== 'All' ? selectedPriceType : undefined
-      };
-      
+      const params = buildToolParams(pageToLoad);
       const response = await axios.get(`${API}/tools`, { params });
-      setTools(response.data);
+      const { items, total, pageSize } = normalizeToolsResponse(response.data);
+
+      setTools((prev) => (replace || pageToLoad === 1 ? items : [...prev, ...items]));
+      setPage(pageToLoad);
+      setHasMore(determineHasMore(pageToLoad, pageSize, total, items.length));
+      setError(null);
     } catch (err) {
       console.error('Error fetching tools:', err);
+      if (pageToLoad === 1) {
+        setError('Failed to load tools. Please try again later.');
+      }
+    } finally {
+      if (pageToLoad === 1) {
+        setLoading(false);
+      } else {
+        setIsFetchingMore(false);
+      }
     }
+  };
+
+  const handleLoadMore = () => {
+    if (!hasMore || isFetchingMore) {
+      return;
+    }
+    fetchToolsWithFilters(page + 1, false);
   };
 
   const handleToolClick = (toolId) => {
@@ -239,6 +308,17 @@ const HomePage = () => {
           </div>
         )}
       </div>
+      {tools.length > 0 && (
+        <div className="load-more-container">
+          <button
+            className="load-more-button"
+            onClick={handleLoadMore}
+            disabled={!hasMore || isFetchingMore}
+          >
+            {isFetchingMore ? 'Loading more...' : hasMore ? 'Load more tools' : 'All tools loaded'}
+          </button>
+        </div>
+      )}
     </div>
   );
 };
